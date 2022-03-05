@@ -14,6 +14,7 @@ use solana_program::{
     sysvar::{clock::Clock, fees::Fees, rent::Rent, Sysvar},
 };
 
+#[repr(C)]
 pub struct StreamMoney{
     /// Timestamp when the funds start unlocking
     pub start_time: u64,
@@ -37,7 +38,6 @@ pub struct StreamMoney{
     pub unlocked_amount: u64,
     /// State of stream
     pub state: u8,
-
 }
 
 
@@ -239,9 +239,9 @@ fn withdraw_unlocked(pid: &Pubkey, accounts: &[AccountInfo], ix: &[u8]) -> Progr
     let now = Clock::get()?.unix_timestamp as u64;
 
     let amount_unlocked;
-    ///check if stream is time based or event based
+    //check if stream is time based or event based
     if stream_money.total_events == 0{
-        /// check if stream is playing
+        // check if stream is playing
         if stream_money.state ==1{
             amount_unlocked = stream_money.unlocked_amount +
                 calculate_streamed_time(now, stream_money.start_time, stream_money.stream_resume_time, stream_money.end_time, stream_money.amount);
@@ -326,7 +326,7 @@ fn edit_time_amount_events(pid: &Pubkey, accounts: &[AccountInfo], _ix: &[u8]) -
     let mut data = pda.try_borrow_mut_data()?;
     let mut stream_money = deserialize_account_data(&data);
     let now = Clock::get()?.unix_timestamp as u64;
-    ///check if edits are doable
+    //check if edits are doable
     if stream_money.end_time<=now || stream_money.total_events<=stream_money.triggered_events{
         return Err(ProgramError::InvalidArgument);
     }
@@ -351,6 +351,10 @@ fn pause_or_resume(pid: &Pubkey, accounts: &[AccountInfo], _ix: &[u8]) -> Progra
     let account_info_iter = &mut accounts.iter();
     let sender = next_account_info(account_info_iter)?;
     let pda = next_account_info(account_info_iter)?;
+
+    if pda.data_is_empty() || pda.owner != pid {
+        return Err(ProgramError::UninitializedAccount);
+    }
 
     if !sender.is_signer || !sender.is_writable {
         return Err(ProgramError::MissingRequiredSignature);
